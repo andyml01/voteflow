@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VoteFlow 線上聚餐時間投票</title>
-  <script src="https://tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://googleapis.com');
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
     body { font-family: 'Noto Sans TC', sans-serif; }
   </style>
 </head>
@@ -252,6 +252,71 @@
                 ${stat.count} 票 <span class="text-xs font-normal text-slate-400">(${percent}%)</span>
               </div>
             </div>
+            <div class="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
+              <div class="h-full rounded-full ${barColor} transition-all duration-500" style="width: ${percent}%"></div>
+            </div>
+            <details class="mt-2 text-xs text-slate-500">
+              <summary class="cursor-pointer select-none hover:text-slate-700">查看投票名單</summary>
+              <div class="mt-1.5">${stat.supporters.length ? stat.supporters.map(escapeHtml).join("、") : "尚無人選擇此時段"}</div>
+            </details>
+          </div>
+        `;
+      }).join("");
+    }
 
+    // 防止 XSS
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
 
+    // 輸入相同姓名時，自動帶入先前的選項
+    document.getElementById("voterName").addEventListener("change", (e) => {
+      const existing = votesData[e.target.value.trim()];
+      if (!existing) return;
+      document.querySelectorAll('input[name="timeSlot"]').forEach(cb => {
+        cb.checked = (existing.slots || []).includes(Number(cb.value));
+      });
+    });
 
+    // 送出表單
+    document.getElementById("voteForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("voterName").value.trim();
+      const selected = [...document.querySelectorAll('input[name="timeSlot"]:checked')].map(cb => Number(cb.value));
+
+      if (!name) {
+        alert("請輸入姓名或暱稱");
+        return;
+      }
+      if (selected.length === 0) {
+        alert("請至少選擇一個可參加的時段");
+        return;
+      }
+
+      const btn = document.getElementById("submitBtn");
+      btn.disabled = true;
+      btn.textContent = "送出中...";
+      try {
+        await saveVote(name, selected);
+        alert(`感謝 ${name}，您的投票已送出！`);
+      } catch (err) {
+        console.error(err);
+        alert("送出失敗，請稍後再試");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "送出我的投票";
+      }
+    });
+
+    // 初始化
+    renderOptions();
+    loadVotes();
+    if (FIREBASE_DB_URL) setInterval(loadVotes, 10000);
+  </script>
+</body>
+</html>
