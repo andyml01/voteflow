@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoteFlow — 活動日期與時段票選</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- 引入 Google Fonts: Inter & Noto Sans TC -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Inter"', '"Noto Sans TC"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 24px 24px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* 進度條平滑動畫 */
+        .progress-bar-fill {
+            transition: width 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        /* 自訂捲軸 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- 頂部導覽列 -->
+    <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+            <!-- 左側品牌標誌 -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-200 shrink-0">
+                    <i data-lucide="calendar-check-2" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-lg tracking-tight text-slate-900">VoteFlow</span>
+                        <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            即時統計
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500">活動日期與時段票選</p>
+                </div>
+            </div>
+
+            <!-- 右側功能按鈕 -->
+            <div class="flex items-center gap-2">
+                <button id="btn-share" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200/80 active:scale-95 transition-all cursor-pointer">
+                    <i data-lucide="share-2" class="w-4 h-4 text-indigo-600"></i>
+                    <span>複製分享連結</span>
+                </button>
+                <button id="btn-reset-my-vote" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium text-rose-600 bg-rose-50 hover:bg-rose-100/80 border border-rose-100 active:scale-95 transition-all cursor-pointer" title="清除您的投票紀錄並重新選擇">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">重置我的選擇</span>
+                    <span class="sm:hidden">重置</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要內容區塊 -->
+    <main class="flex-1 w-full max-w-[820px] mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        
+        <!-- 單一居中高質感投票主卡片 -->
+        <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-200/80 overflow-hidden">
+            
+            <!-- 卡片頂部活動資訊橫幅 -->
+            <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-6 sm:px-8 py-6 sm:py-7 text-white relative overflow-hidden">
+                <div class="absolute -right-10 -top-10 w-44 h-44 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="absolute -left-10 -bottom-12 w-36 h-36 bg-violet-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                
+                <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-sm text-indigo-200 text-xs font-medium mb-2.5 border border-white/10">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>投票進行中 · 支援多時段複選</span>
+                        </div>
+                        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                            跨年與歲末聚會時間調查
+                        </h1>
+                        <p class="text-slate-300 text-xs sm:text-sm mt-1">
+                            請勾選所有您方便出席的日期與時段（12/12 至 1/3），系統將自動統計最佳聚會時間。
+                        </p>
+                    </div>
+                    
+                    <!-- 參與人數即時膠囊 -->
+                    <div class="shrink-0 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl px-4 py-3 flex sm:flex-col items-center sm:items-end justify-between sm:justify-center">
+                        <span class="text-xs text-indigo-200">目前總參與人數</span>
+                        <div class="flex items-baseline gap-1 mt-0.5">
+                            <span id="header-total-voters" class="text-2xl font-bold text-white">0</span>
+                            <span class="text-xs text-slate-300">人已填寫</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 視圖 1：投票選擇介面 ==================== -->
+            <section id="view-vote" class="p-5 sm:p-8">
+                
+                <!-- 參與者姓名輸入區 -->
+                <div class="mb-6 bg-slate-50/90 border border-slate-200/80 rounded-2xl p-4 sm:p-5">
+                    <label for="voter-name" class="block text-sm font-semibold text-slate-800 mb-1.5 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="user" class="w-4 h-4 text-indigo-600"></i>
+                            您的姓名或暱稱
+                        </span>
+                        <span class="text-xs font-normal text-slate-400">選填 · 留空將顯示為「匿名參與者」</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="voter-name" 
+                        maxlength="24"
+                        placeholder="請輸入您的名字，方便大家辨識出席名單..." 
+                        class="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-800 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+                    >
+                </div>
+
+                <!-- 篩選與批次操作工具列 -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <!-- 時段篩選按鈕組 -->
+                    <div class="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200/60 self-start sm:self-auto w-full sm:w-auto overflow-x-auto">
+                        <button type="button" data-filter="all" class="filter-btn flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer bg-white text-indigo-700 shadow-sm">
+                            全部時段 (16)
+                        </button>
+                        <button type="button" data-filter="12:00" class="filter-btn flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition-all cursor-pointer flex items-center justify-center gap-1">
+                            <i data-lucide="sun" class="w-3.5 h-3.5 text-amber-500"></i>
+                            中午 12:00 (8)
+                        </button>
+                        <button type="button" data-filter="18:00" class="filter-btn flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition-all cursor-pointer flex items-center justify-center gap-1">
+                            <i data-lucide="moon" class="w-3.5 h-3.5 text-indigo-500"></i>
+                            晚間 18:00 (8)
+                        </button>
+                    </div>
+
+                    <!-- 批次勾選便利按鈕 -->
+                    <div class="flex items-center justify-end gap-2">
+                        <button type="button" id="btn-select-visible" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-indigo-600 hover:bg-indigo-50 border border-indigo-100 transition-colors cursor-pointer">
+                            全選目前顯示
+                        </button>
+                        <button type="button" id="btn-clear-selection" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer">
+                            清除勾選
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 16 個日期時段雙欄網格容器 -->
+                <div id="options-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-7">
+                    <!-- 由 JavaScript 動態渲染 16 個選項卡片 -->
+                </div>
+
+                <!-- 底部送出與切換結果區 -->
+                <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <button type="button" id="btn-go-results" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-slate-50 transition-colors cursor-pointer">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                        <span>直接查看目前統計結果</span>
+                    </button>
+
+                    <button type="button" id="btn-submit-vote" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-lg shadow-indigo-200 transition-all cursor-pointer">
+                        <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                        <span id="submit-btn-text">送出投票（已選 0 個時段）</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ==================== 視圖 2：即時統計結果介面 ==================== -->
+            <section id="view-results" class="p-5 sm:p-8 hidden">
+                
+                <!-- 最佳推薦時段摘要橫幅 -->
+                <div id="best-slot-banner" class="mb-6 rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50/70 to-amber-50 border border-amber-200/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="flex items-start gap-3.5">
+                        <div class="w-11 h-11 rounded-2xl bg-amber-400/20 border border-amber-300/60 flex items-center justify-center text-amber-600 shrink-0 mt-0.5">
+                            <i data-lucide="crown" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold uppercase tracking-wider text-amber-700">目前最佳推薦時段</span>
+                                <span id="best-slot-votes-badge" class="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white">0 票</span>
+                            </div>
+                            <div id="best-slot-titles" class="text-base sm:text-lg font-bold text-slate-900 mt-1">
+                                尚無投票紀錄
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-amber-800/80 sm:text-right shrink-0">
+                        共 <strong id="results-total-voters" class="text-amber-950 text-sm">0</strong> 位參與者完成投票
+                    </div>
+                </div>
+
+                <!-- 結果控制列：排序切換與參與者名單展開控制 -->
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div class="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200/60">
+                        <button type="button" data-sort="date" class="sort-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-indigo-700 shadow-sm transition-all cursor-pointer flex items-center gap-1.5">
+                            <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                            按日期順序排列
+                        </button>
+                        <button type="button" data-sort="votes" class="sort-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition-all cursor-pointer flex items-center gap-1.5">
+                            <i data-lucide="arrow-down-wide-narrow" class="w-3.5 h-3.5"></i>
+                            按得票數高至低
+                        </button>
+                    </div>
+
+                    <button type="button" id="btn-toggle-voters" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/70 transition-colors cursor-pointer">
+                        <i data-lucide="users" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <span id="toggle-voters-text">收合參與者名單</span>
+                    </button>
+                </div>
+
+                <!-- 16 個日期得票進度條清單 -->
+                <div id="results-list" class="space-y-3 mb-7">
+                    <!-- 由 JavaScript 動態渲染統計結果列 -->
+                </div>
+
+                <!-- 底部返回修改按鈕 -->
+                <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <p class="text-xs text-slate-400">
+                        * 統計結果即時更新並自動儲存於本機瀏覽器
+                    </p>
+                    <button type="button" id="btn-back-to-vote" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 active:scale-[0.98] transition-all cursor-pointer">
+                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                        <span>修改我的選擇</span>
+                    </button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- 頁尾 -->
+    <footer class="py-6 text-center text-xs text-slate-400">
+        VoteFlow 線上活動日期與時段票選系統 · 簡單快速凝聚共識
+    </footer>
+
+    <!-- Toast 通知提示框 -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        /**
+         * 16 個固定日期與時段選項定義
+         */
+        const DATE_OPTIONS = [
+            { id: '1212-12', date: '12/12', day: '六', time: '12:00', period: '午間', label: '12/12 (六) 12:00' },
+            { id: '1212-18', date: '12/12', day: '六', time: '18:00', period: '晚間', label: '12/12 (六) 18:00' },
+            { id: '1213-12', date: '12/13', day: '日', time: '12:00', period: '午間', label: '12/13 (日) 12:00' },
+            { id: '1213-18', date: '12/13', day: '日', time: '18:00', period: '晚間', label: '12/13 (日) 18:00' },
+            { id: '1219-12', date: '12/19', day: '六', time: '12:00', period: '午間', label: '12/19 (六) 12:00' },
+            { id: '1219-18', date: '12/19', day: '六', time: '18:00', period: '晚間', label: '12/19 (六) 18:00' },
+            { id: '1220-12', date: '12/20', day: '日', time: '12:00', period: '午間', label: '12/20 (日) 12:00' },
+            { id: '1220-18', date: '12/20', day: '日', time: '18:00', period: '晚間', label: '12/20 (日) 18:00' },
+            { id: '1226-12', date: '12/26', day: '六', time: '12:00', period: '午間', label: '12/26 (六) 12:00' },
+            { id: '1226-18', date: '12/26', day: '六', time: '18:00', period: '晚間', label: '12/26 (六) 18:00' },
+            { id: '1227-12', date: '12/27', day: '日', time: '12:00', period: '午間', label: '12/27 (日) 12:00' },
+            { id: '1227-18', date: '12/27', day: '日', time: '18:00', period: '晚間', label: '12/27 (日) 18:00' },
+            { id: '0102-12', date: '1/2',   day: '六', time: '12:00', period: '午間', label: '1/2 (六) 12:00' },
+            { id: '0102-18', date: '1/2',   day: '六', time: '18:00', period: '晚間', label: '1/2 (六) 18:00' },
+            { id: '0103-12', date: '1/3',   day: '日', time: '12:00', period: '午間', label: '1/3 (日) 12:00' },
+            { id: '0103-18', date: '1/3',   day: '日', time: '18:00', period: '晚間', label: '1/3 (日) 18:00' }
+        ];
+
+        /**
+         * 內建真實感範例參與者資料
+         */
+        const DEFAULT_PARTICIPANTS = [
+            {
+                id: 'seed-1',
+                name: '陳小美',
+                choices: ['1212-18', '1213-12', '1219-18', '1220-18', '0102-18'],
+                isCurrentUser: false
+            },
+            {
+                id: 'seed-2',
+                name: '林志豪',
+                choices: ['1212-12', '1212-18', '1219-18', '1226-18', '0103-12'],
+                isCurrentUser: false
+            },
+            {
+                id: 'seed-3',
+                name: '王雅婷',
+                choices: ['1213-18', '1219-12', '1219-18', '1220-12', '1227-18'],
+                isCurrentUser: false
+            },
+            {
+                id: 'seed-4',
+                name: '張宇軒',
+                choices: ['1212-18', '1219-18', '1226-12', '1226-18', '0102-12', '0102-18'],
+                isCurrentUser: false
+            },
+            {
+                id: 'seed-5',
+                name: '李佳穎',
+                choices: ['1213-12', '1213-18', '1219-18', '1220-18', '0103-18'],
+                isCurrentUser: false
+            }
+        ];
+
+        const STORAGE_KEY = 'voteflow_16slots_state_v1';
+
+        // 應用程式狀態
+        let appState = {
+            participants: [],
+            myUserId: 'current-user',
+            myName: '',
+            draftSelection: [],
+            hasSubmitted: false,
+            activeFilter: 'all', // 'all' | '12:00' | '18:00'
+            sortBy: 'date',      // 'date' | 'votes'
+            showVoters: true,
+            currentView: 'vote'  // 'vote' | 'results'
+        };
+
+        /**
+         * 初始化載入資料
+         */
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed.participants)) {
+                        appState.participants = parsed.participants;
+                        appState.myName = parsed.myName || '';
+                        appState.hasSubmitted = Boolean(parsed.hasSubmitted);
+                        const me = appState.participants.find(p => p.id === appState.myUserId);
+                        appState.draftSelection = me ? [...me.choices] : [];
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error('讀取本地儲存資料失敗:', e);
+            }
+            // 若無資料則載入預設範例
+            appState.participants = JSON.parse(JSON.stringify(DEFAULT_PARTICIPANTS));
+            appState.draftSelection = [];
+            appState.hasSubmitted = false;
+            saveState();
+        }
+
+        /**
+         * 儲存狀態至 localStorage
+         */
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    participants: appState.participants,
+                    myName: appState.myName,
+                    hasSubmitted: appState.hasSubmitted
+                }));
+            } catch (e) {
+                console.error('儲存資料至 localStorage 失敗:', e);
+            }
+        }
+
+        /**
+         * 顯示 Toast 提示訊息
+         */
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const iconName = type === 'success' ? 'check-circle-2' : (type === 'warning' ? 'alert-circle' : 'info');
+            const bgClass = type === 'success' 
+                ? 'bg-slate-900 text-white border-slate-700' 
+                : (type === 'warning' ? 'bg-amber-600 text-white border-amber-500' : 'bg-indigo-600 text-white border-indigo-500');
+
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-sm font-medium transform translate-y-4 opacity-0 transition-all duration-300 ${bgClass}`;
+            toast.innerHTML = `
+                <i data-lucide="${iconName}" class="w-4 h-4 shrink-0"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons({ root: toast });
+
+            // 進場動畫
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            });
+
+            // 3 秒後退場移除
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 2800);
+        }
+
+        /**
+         * 計算每個時段的得票數與投票者名單
+         */
+        function computeStats() {
+            const statsMap = {};
+            DATE_OPTIONS.forEach(opt => {
+                statsMap[opt.id] = {
+                    ...opt,
+                    count: 0,
+                    voters: []
+                };
+            });
+
+            appState.participants.forEach(person => {
+                person.choices.forEach(choiceId => {
+                    if (statsMap[choiceId]) {
+                        statsMap[choiceId].count += 1;
+                        statsMap[choiceId].voters.push({
+                            name: person.name,
+                            isMe: person.id === appState.myUserId
+                        });
+                    }
+                });
+            });
+
+            return statsMap;
+        }
+
+        /**
+         * 更新頁首總人數顯示
+         */
+        function updateHeaderCount() {
+            const total = appState.participants.length;
+            document.getElementById('header-total-voters').textContent = total;
+            const resTotal = document.getElementById('results-total-voters');
+            if (resTotal) resTotal.textContent = total;
+        }
+
+        /**
+         * 渲染投票選擇網格
+         */
+        function renderVoteGrid() {
+            const grid = document.getElementById('options-grid');
+            const statsMap = computeStats();
+            
+            const filteredOptions = DATE_OPTIONS.filter(opt => {
+                if (appState.activeFilter === 'all') return true;
+                return opt.time === appState.activeFilter;
+            });
+
+            grid.innerHTML = filteredOptions.map(opt => {
+                const isSelected = appState.draftSelection.includes(opt.id);
+                const currentVotes = statsMap[opt.id].count;
+                const isSaturday = opt.day === '六';
+                const isNoon = opt.time === '12:00';
+
+                const dayBadgeClass = isSaturday 
+                    ? 'bg-sky-50 text-sky-700 border-sky-200/80' 
+                    : 'bg-rose-50 text-rose-700 border-rose-200/80';
+
+                const periodBadgeClass = isNoon
+                    ? 'bg-amber-50 text-amber-700 border-amber-200/70'
+                    : 'bg-indigo-50 text-indigo-700 border-indigo-200/70';
+
+                const cardBorderClass = isSelected
+                    ? 'border-indigo-600 bg-indigo-50/40 ring-2 ring-indigo-500/20 shadow-sm'
+                    : 'border-slate-200/90 bg-white hover:border-indigo-300 hover:bg-slate-50/60';
+
+                return `
+                    <button 
+                        type="button" 
+                        data-option-id="${opt.id}"
+                        class="option-card group relative flex items-center justify-between p-4 rounded-2xl border text-left transition-all duration-150 cursor-pointer select-none active:scale-[0.99] ${cardBorderClass}"
+                    >
+                        <div class="flex items-center gap-3.5 min-w-0">
+                            <!-- 自訂複選框 -->
+                            <div class="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 border border-slate-300 text-transparent group-hover:border-indigo-400'}">
+                                <i data-lucide="check" class="w-4 h-4 stroke-[2.5]"></i>
+                            </div>
+
+                            <!-- 日期與時段標籤 -->
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-base font-bold text-slate-900 tracking-tight">${opt.date}</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border ${dayBadgeClass}">
+                                        週${opt.day}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border ${periodBadgeClass}">
+                                        <i data-lucide="${isNoon ? 'sun' : 'moon'}" class="w-3 h-3"></i>
+                                        ${opt.time}
+                                    </span>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-1">
+                                    ${opt.period}場次 · 目前已有 <strong class="text-slate-600 font-semibold">${currentVotes}</strong> 人可出席
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- 右側票數小膠囊 -->
+                        <div class="shrink-0 ml-2 flex flex-col items-end">
+                            <span class="inline-flex items-center justify-center min-w-[2.25rem] px-2 py-1 rounded-xl text-xs font-bold ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}">
+                                ${currentVotes} 票
+                            </span>
+                        </div>
+                    </button>
+                `;
+            }).join('');
+
+            // 綁定卡片點擊事件
+            grid.querySelectorAll('.option-card').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = btn.getAttribute('data-option-id');
+                    toggleOptionSelection(id);
+                });
+            });
+
+            // 更新送出按鈕文字
+            document.getElementById('submit-btn-text').textContent = `送出投票（已選 ${appState.draftSelection.length} 個時段）`;
+            
+            lucide.createIcons({ root: grid });
+        }
+
+        /**
+         * 切換單一選項勾選狀態
+         */
+        function toggleOptionSelection(optionId) {
+            const idx = appState.draftSelection.indexOf(optionId);
+            if (idx === -1) {
+                appState.draftSelection.push(optionId);
+            } else {
+                appState.draftSelection.splice(idx, 1);
+            }
+            renderVoteGrid();
+        }
+
+        /**
+         * 渲染即時統計結果畫面
+         */
+        function renderResultsView() {
+            const statsMap = computeStats();
+            const totalVoters = appState.participants.length;
+            const allStats = Object.values(statsMap);
+
+            // 找出最高票數
+            const maxVotes = allStats.reduce((max, item) => Math.max(max, item.count), 0);
+            const bestSlots = maxVotes > 0 ? allStats.filter(item => item.count === maxVotes) : [];
+
+            // 更新最佳推薦時段橫幅
+            const bestBadge = document.getElementById('best-slot-votes-badge');
+            const bestTitles = document.getElementById('best-slot-titles');
+            if (bestSlots.length > 0) {
+                bestBadge.textContent = `${maxVotes} 票（${Math.round((maxVotes / Math.max(totalVoters, 1)) * 100)}%）`;
+                bestTitles.textContent = bestSlots.map(s => s.label).join('、');
+            } else {
+                bestBadge.textContent = '0 票';
+                bestTitles.textContent = '目前尚無任何投票紀錄';
+            }
+
+            // 排序清單
+            let sortedList = [...allStats];
+            if (appState.sortBy === 'votes') {
+                sortedList.sort((a, b) => b.count - a.count);
+            }
+
+            const me = appState.participants.find(p => p.id === appState.myUserId);
+            const myChoices = me ? me.choices : [];
+
+            const resultsContainer = document.getElementById('results-list');
+            resultsContainer.innerHTML = sortedList.map(item => {
+                const isBest = maxVotes > 0 && item.count === maxVotes;
+                const isMyChoice = myChoices.includes(item.id);
+                const percentage = totalVoters > 0 ? Math.round((item.count / totalVoters) * 100) : 0;
+                const isSaturday = item.day === '六';
+                const isNoon = item.time === '12:00';
+
+                const containerStyle = isBest
+                    ? 'border-amber-300 bg-amber-50/30 shadow-sm'
+                    : (isMyChoice ? 'border-indigo-200 bg-indigo-50/20' : 'border-slate-200/80 bg-white');
+
+                const barColor = isBest
+                    ? 'bg-gradient-to-r from-amber-400 to-orange-500'
+                    : (isMyChoice ? 'bg-gradient-to-r from-indigo-500 to-violet-500' : 'bg-slate-400');
+
+                // 參與者標籤 HTML
+                let votersHtml = '';
+                if (appState.showVoters) {
+                    if (item.voters.length > 0) {
+                        const tags = item.voters.map(v => {
+                            if (v.isMe) {
+                                return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-indigo-600 text-white shadow-xs">
+                                    <i data-lucide="user-check" class="w-3 h-3"></i>${escapeHtml(v.name)}（您）
+                                </span>`;
+                            }
+                            return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200/70">
+                                ${escapeHtml(v.name)}
+                            </span>`;
+                        }).join('');
+                        votersHtml = `<div class="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap gap-1.5">${tags}</div>`;
+                    } else {
+                        votersHtml = `<div class="mt-2.5 pt-2 border-t border-slate-100 text-xs text-slate-400">尚無人選擇此時段</div>`;
+                    }
+                }
+
+                return `
+                    <div class="p-4 rounded-2xl border transition-all ${containerStyle}">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-base font-bold text-slate-900">${item.date}</span>
+                                <span class="px-2 py-0.5 rounded-md text-xs font-semibold border ${isSaturday ? 'bg-sky-50 text-sky-700 border-sky-200/80' : 'bg-rose-50 text-rose-700 border-rose-200/80'}">
+                                    週${item.day}
+                                </span>
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border ${isNoon ? 'bg-amber-50 text-amber-700 border-amber-200/70' : 'bg-indigo-50 text-indigo-700 border-indigo-200/70'}">
+                                    <i data-lucide="${isNoon ? 'sun' : 'moon'}" class="w-3 h-3"></i>
+                                    ${item.time}
+                                </span>
+
+                                ${isBest ? `
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                        <i data-lucide="crown" class="w-3 h-3 text-amber-600"></i>
+                                        最佳時間
+                                    </span>
+                                ` : ''}
+
+                                ${isMyChoice ? `
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                        <i data-lucide="check" class="w-3 h-3"></i>
+                                        您的選擇
+                                    </span>
+                                ` : ''}
+                            </div>
+
+                            <div class="flex items-baseline gap-1.5">
+                                <span class="text-base font-bold ${isBest ? 'text-amber-700' : 'text-slate-900'}">${item.count} 票</span>
+                                <span class="text-xs font-medium text-slate-400">(${percentage}%)</span>
+                            </div>
+                        </div>
+
+                        <!-- 動畫進度條 -->
+                        <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="progress-bar-fill h-full rounded-full ${barColor}" style="width: 0%" data-target-width="${percentage}%"></div>
+                        </div>
+
+                        ${votersHtml}
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons({ root: resultsContainer });
+
+            // 觸發進度條寬度動畫
+            requestAnimationFrame(() => {
+                resultsContainer.querySelectorAll('.progress-bar-fill').forEach(bar => {
+                    bar.style.width = bar.getAttribute('data-target-width');
+                });
+            });
+        }
+
+        /**
+         * 切換視圖 ('vote' 或 'results')
+         */
+        function switchView(viewName) {
+            appState.currentView = viewName;
+            const voteSection = document.getElementById('view-vote');
+            const resultsSection = document.getElementById('view-results');
+
+            if (viewName === 'vote') {
+                resultsSection.classList.add('hidden');
+                voteSection.classList.remove('hidden');
+                document.getElementById('voter-name').value = appState.myName;
+                renderVoteGrid();
+            } else {
+                voteSection.classList.add('hidden');
+                resultsSection.classList.remove('hidden');
+                renderResultsView();
+            }
+            updateHeaderCount();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        /**
+         * 防止 XSS 的 HTML 跳脫函式
+         */
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        /**
+         * 綁定所有互動事件監聽器
+         */
+        function bindEvents() {
+            // 姓名輸入即時同步
+            document.getElementById('voter-name').addEventListener('input', (e) => {
+                appState.myName = e.target.value;
+            });
+
+            // 篩選按鈕切換
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    appState.activeFilter = btn.getAttribute('data-filter');
+                    document.querySelectorAll('.filter-btn').forEach(b => {
+                        const isActive = b === btn;
+                        b.className = isActive
+                            ? 'filter-btn flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer bg-white text-indigo-700 shadow-sm flex items-center justify-center gap-1'
+                            : 'filter-btn flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition-all cursor-pointer flex items-center justify-center gap-1';
+                    });
+                    renderVoteGrid();
+                });
+            });
+
+            // 全選目前顯示
+            document.getElementById('btn-select-visible').addEventListener('click', () => {
+                const visibleIds = DATE_OPTIONS
+                    .filter(opt => appState.activeFilter === 'all' || opt.time === appState.activeFilter)
+                    .map(opt => opt.id);
+                
+                const set = new Set(appState.draftSelection);
+                visibleIds.forEach(id => set.add(id));
+                appState.draftSelection = Array.from(set);
+                renderVoteGrid();
+                showToast(`已勾選目前顯示的 ${visibleIds.length} 個時段`, 'info');
+            });
+
+            // 清除勾選
+            document.getElementById('btn-clear-selection').addEventListener('click', () => {
+                appState.draftSelection = [];
+                renderVoteGrid();
+                showToast('已清除所有勾選時段', 'info');
+            });
+
+            // 送出投票
+            document.getElementById('btn-submit-vote').addEventListener('click', () => {
+                if (appState.draftSelection.length === 0) {
+                    showToast('請至少勾選 1 個方便出席的日期時段！', 'warning');
+                    return;
+                }
+
+                const cleanName = appState.myName.trim() || '匿名參與者';
+                appState.myName = appState.myName.trim();
+
+                // 更新或新增目前使用者的投票紀錄
+                const existingIdx = appState.participants.findIndex(p => p.id === appState.myUserId);
+                const record = {
+                    id: appState.myUserId,
+                    name: cleanName,
+                    choices: [...appState.draftSelection],
+                    isCurrentUser: true
+                };
+
+                if (existingIdx !== -1) {
+                    appState.participants[existingIdx] = record;
+                } else {
+                    appState.participants.push(record);
+                }
+
+                appState.hasSubmitted = true;
+                saveState();
+                showToast(`感謝 ${cleanName}！已成功送出 ${appState.draftSelection.length} 個時段投票`, 'success');
+                switchView('results');
+            });
+
+            // 直接查看目前統計結果
+            document.getElementById('btn-go-results').addEventListener('click', () => {
+                switchView('results');
+            });
+
+            // 返回修改選擇
+            document.getElementById('btn-back-to-vote').addEventListener('click', () => {
+                switchView('vote');
+            });
+
+            // 排序方式切換
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    appState.sortBy = btn.getAttribute('data-sort');
+                    document.querySelectorAll('.sort-btn').forEach(b => {
+                        const isActive = b === btn;
+                        b.className = isActive
+                            ? 'sort-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-indigo-700 shadow-sm transition-all cursor-pointer flex items-center gap-1.5'
+                            : 'sort-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition-all cursor-pointer flex items-center gap-1.5';
+                    });
+                    renderResultsView();
+                });
+            });
+
+            // 展開/收合參與者名單
+            document.getElementById('btn-toggle-voters').addEventListener('click', () => {
+                appState.showVoters = !appState.showVoters;
+                document.getElementById('toggle-voters-text').textContent = appState.showVoters ? '收合參與者名單' : '展開參與者名單';
+                renderResultsView();
+            });
+
+            // 一鍵複製分享連結 (使用 document.execCommand 相容 iFrame)
+            document.getElementById('btn-share').addEventListener('click', () => {
+                const shareUrl = window.location.href;
+                const tempInput = document.createElement('input');
+                tempInput.value = shareUrl;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                tempInput.setSelectionRange(0, 99999);
+                try {
+                    document.execCommand('copy');
+                    showToast('已複製投票連結！快傳給大家一起選時間吧', 'success');
+                } catch (err) {
+                    showToast('複製失敗，請手動複製網址列連結', 'warning');
+                }
+                document.body.removeChild(tempInput);
+            });
+
+            // 重置我的選擇
+            document.getElementById('btn-reset-my-vote').addEventListener('click', () => {
+                appState.participants = appState.participants.filter(p => p.id !== appState.myUserId);
+                appState.draftSelection = [];
+                appState.myName = '';
+                appState.hasSubmitted = false;
+                saveState();
+                showToast('已重置您的投票紀錄，可重新選擇時段', 'info');
+                switchView('vote');
+            });
+        }
+
+        // 啟動應用程式
+        window.addEventListener('DOMContentLoaded', () => {
+            loadState();
+            bindEvents();
+            lucide.createIcons();
+            // 若先前已投票，預設進入結果頁；否則進入投票頁
+            if (appState.hasSubmitted) {
+                switchView('results');
+            } else {
+                switchView('vote');
+            }
+        });
+    </script>
+</body>
+</html>
